@@ -1,0 +1,168 @@
+---
+title: " ![](C:\\Users\\I518759\\Desktop\\R\\WORK\\download.jpg) Binary Classification Iris" 
+output: html_document
+---
+
+Binary  classication on iris data set to classify flowers according to different species.
+Eg : Setosa and non setosa
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##### Packages in use :
+```{r}
+library(caret)           #for model traing
+library(dplyr)           #for dataframe operations
+library(rattle)
+```
+##### Loading dataset from csv file :
+Data set “iris” gives the measurements in centimeters of the variables : 
+sepal length, 
+sepal width, 
+petal length,
+petal width, 
+respectively, for 50 flowers from each of 3 species of Iris. 
+
+The dataset has 150 cases (rows) and 6  variables (columns) named: Id, Sepal.Length, Sepal.Width, Petal.Length, Petal.Width, Species.
+I had removed the Id column beacause we don't need it for making predictions .
+```{r}
+iris <- read.csv("C:\\Users\\I518759\\Desktop\\R\\WORK\\Iris.csv")
+iris <- select(iris,-c(Id)) 
+head(iris)
+```
+###### Changing in Binarylabels
+Since we are interested in binary classification(i.e setosa or not setosa),I have changed the labels.
+```{r}
+levels(iris$Species) <- c(levels(iris$Species), "not-setosa")
+iris$Species[iris$Species == 'Iris-versicolor'] <- 'not-setosa'
+iris$Species[iris$Species == 'Iris-virginica']<-'not-setosa'
+iris$Species <- factor(iris$Species)
+table(iris$Species)
+```
+###### Split dataset in train & test sets
+By using createDataPaartition() from caret package split the dataset into training and testing set.Here I have used a proportion of 80 % for training and rest 20% for the testing purpose.
+```{r}
+split_matrix <- createDataPartition(iris$Species,p=0.80,list=FALSE)
+test_set <- iris[-split_matrix,]   #20% for the test
+train_set <- iris[split_matrix,]   #80% for the training
+```
+##### Data Analysis on training set: 
+Viewing the training set to gain insights.
+```{r}
+summary(train_set)        #for summery of the dataframe
+dim(train_set)            #no. of rows and columns
+sapply(train_set,class)
+levels(train_set$Species)
+table(train_set$Species)
+colnames(train_set)
+```
+##### Feature Plotings :
+Visualising the train set.
+The y label to predict for this model is Species, which is located at column 5 in the data frame.
+All other attribute columns are included as features in x
+```{r}
+x_set <- train_set[,1:4]
+y_set <- train_set[,5]
+
+plot(y_set)
+```
+```{r}
+```
+Bar plot to check the proportion in each species .There are 40 entries for setosa and 80 for others.
+```{r}
+featurePlot(x=x_set,
+            y=y_set, 
+            plot = "ellipse",
+            auto.key = list(columns = 2))
+```
+```{r}
+```
+A Scatter plot matrix to provides a quick and easy view of corelation i.e how much one variable is affected by another. 
+```{r}
+featurePlot(x=x_set,
+            y=y_set,
+            plot="box")
+```
+```{r}
+```
+Box plot provides whiskers for each attribute grouped by y class.
+```{r}
+featurePlot(x = x_set, 
+            y = y_set,
+            plot = "density", 
+            ## Pass in options to xyplot() to 
+            ## make it prettier
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")), 
+)
+```
+```{r}
+```
+Density plot provides density by each attribute in y class.
+```{r}
+```
+##### Creating different Machine Learning Models :
+Since we have only 150 rows in iris dataset, removing a part of it for validation poses a problem of underfitting. By reducing the training data, we risk losing important patterns/ trends in data set, which in turn increases error induced by bias.So, what we require is a method that provides ample data for training the model and also leaves ample data for validation.
+
+Resampling method used here is K Fold cross validation.The value of K in this case is 10.
+```{r}
+control <- trainControl(method = "cv",number = 10)
+
+#Naive Bayes
+set.seed(7)
+model.nb <- train(Species~.,data=train_set,method="nb",trControl= control)
+
+# Classification and Regression Trees
+#rpart : non recursive partitioning./decision tree
+set.seed(7)
+model.cart <- train(Species~., data=train_set, method="rpart",trControl=control)
+fancyRpartPlot(model.cart$finalModel)
+
+#glm - logistic regression
+set.seed(7)
+model.lm <- train(Species~.,data=train_set,method="glm")
+#Error: wrong model type for classification
+
+# k-Nearest Neighbors
+set.seed(7)
+model.knn <- train(Species~., data=train_set, method="knn",trControl=control)
+
+# Support Vector Machines
+set.seed(7)
+model.svm <- train(Species~., data=train_set, method="svmRadial",trControl=control)
+
+#Random Forest
+set.seed(7)
+model.rf <- train(Species~., data=train_set, method="rf",trControl= control)
+
+# Linear Discriminant Analysis
+set.seed(7)
+model.lda <- train(Species~., data=train_set, method="lda",trControl=control)
+```
+##### Summerize and finding best model :
+Analyzing results from each model and finding out the best one on the basis of metrics.
+metrics used here is Accuracy and Kappa.
+```{r}
+results <- resamples(list(lda=model.lda,nb=model.nb, cart=model.cart, knn=model.knn, svm=model.svm, rf=model.rf))
+summary(results)
+
+bwplot(results)
+dotplot(results)
+```
+##### Best Model Summary
+
+```{r}
+print(model.svm)
+```
+##### Testing
+Predicting the testing set species 
+```{r}
+svm_predict <- predict(model.svm,test_set)
+confusionMatrix(svm_predict,test_set$Species)
+
+lda_predict <- predict(model.lda,test_set)
+confusionMatrix(lda_predict,test_set$Species)
+
+nb_predict <- predict(model.nb,test_set)
+confusionMatrix(nb_predict,test_set$Species)
+
+```
